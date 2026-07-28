@@ -85,12 +85,23 @@
     root.querySelectorAll?.(".entity-window").forEach(initializeWindow);
   }
 
+  function syncWindowLayerVisibility() {
+    const windowLayer = document.querySelector("#window-layer");
+    if (!windowLayer) return;
+    const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
+    windowLayer.hidden = currentPath !== "/admin/users";
+  }
+
   document.addEventListener("htmx:after:settle", (event) => {
     initializeWithin(event.target);
-    if (event.target.id === "app-main") event.target.focus({ preventScroll: true });
+    if (event.target.id === "app-main") {
+      syncWindowLayerVisibility();
+      event.target.focus({ preventScroll: true });
+    }
   });
   document.addEventListener("DOMContentLoaded", () => {
     initializeWithin(document);
+    syncWindowLayerVisibility();
     const windowLayer = document.querySelector("#window-layer");
     if (!windowLayer) return;
     new MutationObserver((mutations) => {
@@ -103,6 +114,7 @@
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    if (document.querySelector("#window-layer")?.hidden) return;
     const windows = Array.from(document.querySelectorAll(".entity-window"));
     windows.sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex));
     windows[0]?.remove();

@@ -335,6 +335,7 @@ input:focus { border-color: var(--green); }
 .open-glyph { color: var(--green); font-size: 1.1rem; }
 
 .window-layer { position: fixed; z-index: 40; inset: 0; pointer-events: none; }
+.window-layer[hidden] { display: none; }
 .entity-window {
   position: absolute;
   top: 50%;
