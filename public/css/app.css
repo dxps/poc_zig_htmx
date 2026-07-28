@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap");
 
 :root {
   --ink: #17231d;
@@ -12,7 +12,7 @@
   --orange: #f0a45d;
   --danger: #a23b31;
   --shadow: 0 20px 55px rgba(20, 40, 30, 0.14);
-  font-family: "DM Sans", system-ui, sans-serif;
+  font-family: "Work Sans", system-ui, sans-serif;
   color: var(--ink);
   background: var(--paper);
 }
@@ -25,7 +25,6 @@ a { color: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 
 h1, h2, p { margin-top: 0; }
-h1, h2, .brand { font-family: "Manrope", system-ui, sans-serif; }
 h1 { letter-spacing: -0.045em; }
 h2 { letter-spacing: -0.025em; }
 
@@ -163,6 +162,65 @@ input:focus { border-color: var(--green); }
 .notice.error { color: var(--danger); border: 1px solid #e6beb9; background: #fff1ee; }
 .notice.success { color: #12533f; border: 1px solid #a9d6c3; background: #e9f8f0; }
 
+.toast-region {
+  position: fixed;
+  z-index: 200;
+  top: 96px;
+  right: 24px;
+  width: min(390px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  display: grid;
+  padding: 1rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.8rem;
+  border: 1px solid #a9d6c3;
+  border-radius: 1rem;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  animation: toast-enter 220ms ease-out both;
+  pointer-events: auto;
+}
+.toast.is-dismissing { animation: toast-exit 180ms ease-in both; }
+.toast-icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--green);
+  font-weight: 700;
+}
+.toast strong { display: block; margin-bottom: 0.18rem; }
+.toast p { margin: 0; color: var(--muted); font-size: 0.84rem; line-height: 1.4; }
+.toast button {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+.toast button:hover { color: var(--ink); background: var(--paper); }
+
+@keyframes toast-enter {
+  from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toast-exit {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-8px) scale(0.98); }
+}
+
 .centered-page { display: grid; place-items: center; padding: 2rem; background: var(--paper); }
 .initial-card { width: min(100%, 540px); }
 .step-badge {
@@ -293,23 +351,22 @@ input:focus { border-color: var(--green); }
 .entity-window[data-window-ready="true"] { transform: none; }
 .entity-window.is-dragging { user-select: none; box-shadow: 0 32px 90px rgba(15, 35, 26, 0.36); }
 .window-titlebar {
-  display: grid;
-  height: 48px;
-  padding: 0 0.8rem;
-  grid-template-columns: 1fr auto 1fr;
+  position: relative;
+  display: flex;
+  height: 36px;
+  padding: 0 2.4rem;
   align-items: center;
-  border-bottom: 1px solid var(--line);
-  background: #eef0e9;
+  justify-content: center;
+  background: var(--surface);
   font-size: 0.75rem;
   font-weight: 700;
   cursor: grab;
   touch-action: none;
+  transition: background 140ms ease;
 }
+.window-titlebar:hover { background: #eef0e9; }
 .is-dragging .window-titlebar { cursor: grabbing; }
-.window-dots { display: flex; gap: 0.32rem; }
-.window-dots i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: #b6beb7; }
-.window-dots i:first-child { background: var(--orange); }
-.window-close { justify-self: end; width: 2rem; height: 2rem; border: 0; border-radius: 50%; color: var(--muted); background: transparent; font-size: 1.3rem; cursor: pointer; }
+.window-close { position: absolute; right: 0.45rem; width: 1.7rem; height: 1.7rem; border: 0; border-radius: 50%; color: var(--muted); background: transparent; font-size: 1.1rem; cursor: pointer; }
 .window-close:hover { color: var(--ink); background: #dfe3dc; }
 .window-content { padding: 1.4rem; }
 .window-identity { display: flex; margin-bottom: 1.4rem; align-items: center; gap: 1rem; }
@@ -340,6 +397,7 @@ input:focus { border-color: var(--green); }
   .pending-chip { display: none; }
   .role-chip { display: none; }
   .primary-nav a { padding-inline: 0.7rem; }
+  .toast-region { top: 128px; right: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

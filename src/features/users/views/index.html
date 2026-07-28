@@ -8,7 +8,16 @@ extends "layout"
     <span class="status-key"><i></i> Administrator access</span>
 </section>
 if (created) {
-    <p class="notice success" role="status">The user was created and must change their password at first sign-in.</p>
+    <div class="toast-region" aria-live="polite" aria-atomic="true">
+        <div class="toast success-toast" role="status" data-toast data-timeout="5000">
+            <span class="toast-icon" aria-hidden="true">✓</span>
+            <div>
+                <strong>User created</strong>
+                <p>The user must change their password at first sign-in.</p>
+            </div>
+            <button type="button" data-toast-close aria-label="Dismiss notification">×</button>
+        </div>
+    </div>
 }
 <section class="admin-layout">
     <form class="panel form-stack create-user-card" method="post" action="/admin/users">
