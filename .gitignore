@@ -1,3 +1,8 @@
+.DS_Store
+.env
 .zig-cache/
+zig-pkg/
 zig-out/
-*.o
+src/embedded_templates.zig
+
+/.idea

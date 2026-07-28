@@ -1,0 +1,30 @@
+extends "layout"
+<section class="page-heading">
+    <div>
+        <span class="eyebrow">Workspace overview</span>
+        <h1>Good to see you, { display_name }.</h1>
+        <p>Your account is secure and ready to use.</p>
+    </div>
+</section>
+<section class="dashboard-grid">
+    <article class="spotlight-card">
+        <span class="card-index">01</span>
+        <div>
+            <span class="eyebrow">Account</span>
+            <h2>Keep your details current.</h2>
+            <p>Update your email address or rotate your password whenever you need to.</p>
+        </div>
+        <a class="button secondary" href="/profile" hx-get="/profile" hx-target="#app-main" hx-push-url="true">Open profile</a>
+    </article>
+    if (is_admin) {
+        <article class="spotlight-card accent-card">
+            <span class="card-index">02</span>
+            <div>
+                <span class="eyebrow">Administration</span>
+                <h2>Bring a new person onboard.</h2>
+                <p>Create their account, set an initial password, and let Northstar enforce the secure handoff.</p>
+            </div>
+            <a class="button dark" href="/admin/users" hx-get="/admin/users" hx-target="#app-main" hx-push-url="true">Manage users</a>
+        </article>
+    }
+</section>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Northstar Admin</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/vendor/htmx.min.js" defer></script>
+    <script src="/js/window-manager.js" defer></script>
+</head>
+<body class="app-body">
+    <header class="app-header">
+        <a class="brand" href="/home" hx-get="/home" hx-target="#app-main" hx-push-url="true">
+            <span class="brand-mark">N</span>
+            <span>Northstar</span>
+        </a>
+        <nav class="primary-nav" aria-label="Primary navigation">
+            <a href="/home" hx-get="/home" hx-target="#app-main" hx-push-url="true">Home</a>
+            <a href="/profile" hx-get="/profile" hx-target="#app-main" hx-push-url="true">Profile</a>
+            if (is_admin) {
+                <a href="/admin/users" hx-get="/admin/users" hx-target="#app-main" hx-push-url="true">Users</a>
+            }
+        </nav>
+        <div class="account-menu">
+            <div>
+                <strong>{ display_name }</strong>
+                <span>{ email }</span>
+            </div>
+            <form method="post" action="/logout">
+                <button class="button ghost small" type="submit">Sign out</button>
+            </form>
+        </div>
+    </header>
+    <main id="app-main" class="app-main" tabindex="-1">
+        { slot }
+    </main>
+    <div id="window-layer" class="window-layer" aria-live="polite"></div>
+</body>
+</html>

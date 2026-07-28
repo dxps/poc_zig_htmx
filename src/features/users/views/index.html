@@ -1,0 +1,48 @@
+extends "layout"
+<section class="page-heading split-heading">
+    <div>
+        <span class="eyebrow">Administration</span>
+        <h1>People</h1>
+        <p>Create accounts and inspect onboarding status.</p>
+    </div>
+    <span class="status-key"><i></i> Administrator access</span>
+</section>
+if (created) {
+    <p class="notice success" role="status">The user was created and must change their password at first sign-in.</p>
+}
+<section class="admin-layout">
+    <form class="panel form-stack create-user-card" method="post" action="/admin/users">
+        <div class="panel-heading">
+            <span class="panel-number">+</span>
+            <div><h2>Register a user</h2><p>Provide a temporary credential for their first sign-in.</p></div>
+        </div>
+        if (has_error) { <p class="notice error" role="alert">{ error_message }</p> }
+        <label><span>Full name</span><input name="display_name" autocomplete="name" required></label>
+        <label><span>Email address</span><input name="email" type="email" autocomplete="off" required></label>
+        <label><span>Initial password</span><input name="initial_password" type="password" autocomplete="new-password" minlength="10" required></label>
+        <button class="button primary" type="submit">Create account</button>
+    </form>
+    <section class="panel people-panel">
+        <div class="panel-heading">
+            <span class="panel-number">↗</span>
+            <div><h2>Current people</h2><p>Select a person to open their dedicated window.</p></div>
+        </div>
+        <div class="people-list">
+            for (users) |user| {
+                <button
+                    class="person-row"
+                    type="button"
+                    hx-get="/admin/users/{ user.id }/window"
+                    hx-target="#window-layer"
+                    hx-swap="beforeend"
+                >
+                    <span class="avatar">{ user.display_name }</span>
+                    <span class="person-copy"><strong>{ user.display_name }</strong><small>{ user.email }</small></span>
+                    <span class="role-chip">{ user.role }</span>
+                    if (user.must_change_password) { <span class="pending-chip">First login pending</span> }
+                    <span class="open-glyph" aria-hidden="true">↗</span>
+                </button>
+            }
+        </div>
+    </section>
+</section>

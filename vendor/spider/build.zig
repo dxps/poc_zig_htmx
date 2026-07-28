@@ -1,0 +1,239 @@
+const std = @import("std");
+
+/// Which `std.Io` implementation `Server.listen()` constructs.
+/// `.threaded` is the default: a bounded `Io.Threaded` pool
+/// (`cpu_count - 1` concurrent async tasks, unlimited `.concurrent()`).
+/// `.zio` is experimental: an event-driven runtime (io_uring/epoll/kqueue)
+/// with no such thread-per-task ceiling for I/O-bound work — see
+/// `zio_backend_test.zig` for a benchmark demonstrating the difference.
+const IoBackend = enum { threaded, zio };
+
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+    const with_pg = b.option(bool, "pg", "Enable PostgreSQL support") orelse false;
+    const with_r2 = b.option(bool, "r2", "Enable Cloudflare R2 support") orelse false;
+    const with_sqlite = b.option(bool, "sqlite", "Enable SQLite support") orelse false;
+    const with_qrcode = b.option(bool, "qrcode", "Enable QR code generation") orelse false;
+    const io_backend = b.option(
+        IoBackend,
+        "io_backend",
+        "I/O backend for Server.listen(): threaded (default, stable) or zio (experimental, event-driven)",
+    ) orelse .threaded;
+
+    const build_options = b.addOptions();
+    build_options.addOption(IoBackend, "io_backend", io_backend);
+    const build_options_mod = build_options.createModule();
+
+    const pacman_dep = b.dependency("pacman", .{});
+    const pg_dep = b.dependency("pg", .{ .target = target, .optimize = optimize });
+    const zqlite_dep = b.dependency("zqlite", .{ .target = target, .optimize = optimize });
+
+    const mod = b.addModule("spider", .{
+        .root_source_file = b.path("src/spider.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .imports = &.{
+            .{ .name = "pacman", .module = pacman_dep.module("pacman") },
+            .{ .name = "pg", .module = pg_dep.module("pg") },
+            .{ .name = "spider_build_options", .module = build_options_mod },
+        },
+    });
+
+    if (io_backend == .zio) {
+        // Not lazy anymore (see build.zig.zon) — b.dependency() is
+        // guaranteed already-fetched, no optional to unwrap.
+        //
+        // Forces epoll instead of zio's own Linux default (io_uring):
+        // io_uring_setup() came back EPERM under Docker's default seccomp
+        // profile (io_uring syscalls aren't in its allowlist — a
+        // well-known restriction, io_uring has a heavy CVE history).
+        // Confirmed via a minimal zio-only reproduction (github.com/
+        // llllOllOOll/spider tree, see zio_app scratch project) deployed
+        // to the same VPS/Docker setup as production: crashed within
+        // seconds with io_uring (default), ran clean with
+        // -Dbackend=epoll forced. epoll is supported by every Linux
+        // seccomp profile in practice, at the cost of io_uring's lower
+        // per-syscall overhead — not a concern at this app's scale.
+        const zio_dep = b.dependency("zio", .{
+            .target = target,
+            .optimize = optimize,
+            .backend = @as(?[]const u8, "epoll"),
+        });
+        mod.addImport("zio", zio_dep.module("zio"));
+    }
+
+    if (with_pg) {
+        const pg_module_dep = b.lazyDependency("spider_pg", .{
+            .target = target,
+            .optimize = optimize,
+        }) orelse unreachable;
+        const spider_pg = pg_module_dep.module("spider_pg");
+        spider_pg.addImport("spider", mod);
+        mod.addImport("spider_pg", spider_pg);
+    }
+
+    if (with_sqlite) {
+        if (b.lazyDependency("spider_sqlite", .{ .target = target, .optimize = optimize })) |dep| {
+            const spider_sqlite = dep.module("spider_sqlite");
+            spider_sqlite.addImport("spider", mod);
+            mod.addImport("spider_sqlite", spider_sqlite);
+        }
+    }
+
+    if (with_r2) {
+        if (b.lazyDependency("spider_r2", .{ .target = target, .optimize = optimize })) |dep| {
+            const spider_r2 = dep.module("spider_r2");
+            spider_r2.addImport("spider", mod);
+            spider_r2.addImport("pacman", pacman_dep.module("pacman"));
+            mod.addImport("spider_r2", spider_r2);
+        }
+    }
+
+    if (with_qrcode) {
+        // Unlike pg/r2/sqlite, this module has no dependency on
+        // spider's own Ctx/Response types (it only produces a module
+        // matrix), so it does not need `spider_qrcode.addImport("spider", mod)`.
+        if (b.lazyDependency("spider_qrcode", .{ .target = target, .optimize = optimize })) |dep| {
+            const spider_qrcode = dep.module("spider_qrcode");
+            mod.addImport("spider_qrcode", spider_qrcode);
+        }
+    }
+
+    // Default spider_config fallback for projects without spider.config.zig
+    const default_cfg = b.addWriteFiles();
+    const default_cfg_file = default_cfg.add("spider_config.zig",
+        \\const spider = @import("spider");
+        \\pub const is_default = true;
+        \\pub const config = spider.Config{};
+    );
+    const default_cfg_mod = b.createModule(.{
+        .root_source_file = default_cfg_file,
+        .imports = &.{
+            .{ .name = "spider", .module = mod },
+        },
+    });
+    mod.addImport("spider_config", default_cfg_mod);
+
+    // Default template_helpers fallback for projects without their own
+    // helpers module. Apps override this by calling mod.addImport with a
+    // real template_helpers.zig — see render/renderer.zig's .call case.
+    const default_helpers = b.addWriteFiles();
+    const default_helpers_file = default_helpers.add("template_helpers.zig",
+        \\// No custom template helpers registered — any { name(...) } call in
+        \\// a template renders empty (see render/renderer.zig's .call case).
+    );
+    const default_helpers_mod = b.createModule(.{
+        .root_source_file = default_helpers_file,
+    });
+    mod.addImport("template_helpers", default_helpers_mod);
+
+    // spider CLI — `spider new <app_name>`
+    const cli_exe = b.addExecutable(.{
+        .name = "spider",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/cli/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+            .imports = &.{
+                .{ .name = "pg", .module = pg_dep.module("pg") },
+                .{ .name = "zqlite", .module = zqlite_dep.module("zqlite") },
+            },
+        }),
+    });
+    b.installArtifact(cli_exe);
+
+    // generate-templates — CLI tool used by dev projects
+    const gen_exe = b.addExecutable(.{
+        .name = "generate-templates",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/generate_templates.zig"),
+            .target = target,
+        }),
+    });
+    b.installArtifact(gen_exe);
+
+    // spider_build — build helpers for dev projects
+    _ = b.addModule("spider_build", .{
+        .root_source_file = b.path("src/build_helpers.zig"),
+    });
+
+    // tests — existing module tests
+    const mod_tests = b.addTest(.{
+        .root_module = mod,
+    });
+    const run_mod_tests = b.addRunArtifact(mod_tests);
+    const test_step = b.step("test", "Run tests");
+    test_step.dependOn(&run_mod_tests.step);
+
+    // test-zio-backend — integration test for the zio io_backend: starts a
+    // real Server.listen() and hits it with real concurrent HTTP requests.
+    // Only exists when `-Dio_backend=zio` is passed, since it can't build
+    // against a `mod` that doesn't have `zio` wired in. Has side effects
+    // (binds a TCP listener), so it's a separate step from `test`.
+    if (io_backend == .zio) {
+        const zio_backend_test = b.addTest(.{
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("zio_backend_test.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "spider", .module = mod },
+                    .{ .name = "pacman", .module = pacman_dep.module("pacman") },
+                },
+            }),
+        });
+        const run_zio_backend_test = b.addRunArtifact(zio_backend_test);
+        run_zio_backend_test.has_side_effects = true;
+        const test_zio_backend_step = b.step("test-zio-backend", "Run zio io_backend integration test (requires -Dio_backend=zio)");
+        test_zio_backend_step.dependOn(&run_zio_backend_test.step);
+    }
+
+    // test-pg — pg wrapper integration tests (requires PostgreSQL)
+    const pg_lib_mod = pg_dep.module("pg");
+
+    const spider_core_mod = b.createModule(.{
+        .root_source_file = b.path("src/spider_core_for_pg.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+
+    const pg_test = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("pg_test_root.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+            .imports = &.{
+                .{ .name = "pg", .module = pg_lib_mod },
+                .{ .name = "spider", .module = spider_core_mod },
+            },
+        }),
+        .test_runner = .{ .path = b.path("test_runner.zig"), .mode = .simple },
+    });
+    const run_pg_tests = b.addRunArtifact(pg_test);
+    run_pg_tests.has_side_effects = true;
+    const test_pg_step = b.step("test-pg", "Run pg wrapper integration tests");
+    test_pg_step.dependOn(&run_pg_tests.step);
+
+    // test-sqlite — sqlite wrapper tests (uses :memory:, no external DB needed)
+    const zqlite_mod = zqlite_dep.module("zqlite");
+
+    const sqlite_test = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("modules/sqlite/src/sqlite.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+            .imports = &.{
+                .{ .name = "zqlite", .module = zqlite_mod },
+            },
+        }),
+    });
+    const run_sqlite_tests = b.addRunArtifact(sqlite_test);
+    const test_sqlite_step = b.step("test-sqlite", "Run sqlite tests");
+    test_sqlite_step.dependOn(&run_sqlite_tests.step);
+}

@@ -1,0 +1,25 @@
+<section
+    class="entity-window"
+    role="dialog"
+    aria-modal="false"
+    aria-labelledby="user-window-title-{ id }"
+    data-window-id="user-{ id }"
+>
+    <header class="window-titlebar" data-window-handle>
+        <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>User record</span>
+        <button class="window-close" type="button" data-window-close aria-label="Close user window">×</button>
+    </header>
+    <div class="window-content">
+        <div class="window-identity">
+            <span class="avatar large">{ display_name }</span>
+            <div><h2 id="user-window-title-{ id }">{ display_name }</h2><p>{ email }</p></div>
+        </div>
+        <dl class="detail-list">
+            <div><dt>Role</dt><dd>{ role }</dd></div>
+            <div><dt>Account</dt><dd>if (active) { Active } else { Disabled }</dd></div>
+            <div><dt>Onboarding</dt><dd>if (must_change_password) { Password change pending } else { Complete }</dd></div>
+            <div><dt>User ID</dt><dd>#{ id }</dd></div>
+        </dl>
+    </div>
+</section>
