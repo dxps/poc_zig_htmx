@@ -279,14 +279,18 @@ input:focus { border-color: var(--green); }
 .window-layer { position: fixed; z-index: 40; inset: 0; pointer-events: none; }
 .entity-window {
   position: absolute;
+  top: 50%;
+  left: 50%;
   width: min(440px, calc(100vw - 32px));
   overflow: hidden;
   border: 1px solid #b9c1ba;
   border-radius: 1rem;
   background: var(--surface);
   box-shadow: 0 26px 80px rgba(15, 35, 26, 0.28);
+  transform: translate(-50%, -50%);
   pointer-events: auto;
 }
+.entity-window[data-window-ready="true"] { transform: none; }
 .entity-window.is-dragging { user-select: none; box-shadow: 0 32px 90px rgba(15, 35, 26, 0.36); }
 .window-titlebar {
   display: grid;

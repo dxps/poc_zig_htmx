@@ -16,8 +16,13 @@
 
     const openCount = document.querySelectorAll(".entity-window").length - 1;
     const offset = (openCount % 6) * 28;
-    windowElement.style.left = `${Math.max(16, window.innerWidth / 2 - 220 + offset)}px`;
-    windowElement.style.top = `${Math.max(84, 112 + offset)}px`;
+    const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const rect = windowElement.getBoundingClientRect();
+    const left = Math.max(16, (viewportWidth - rect.width) / 2 + offset);
+    const top = Math.max(84, (viewportHeight - rect.height) / 2 + offset);
+    windowElement.style.left = `${left}px`;
+    windowElement.style.top = `${top}px`;
     bringToFront(windowElement);
     windowElement.querySelector("[data-window-close]")?.focus();
   }
@@ -75,15 +80,27 @@
   }
 
   function initializeWithin(root) {
+    if (!root) return;
     if (root.matches?.(".entity-window")) initializeWindow(root);
     root.querySelectorAll?.(".entity-window").forEach(initializeWindow);
   }
 
-  document.addEventListener("htmx:after:swap", (event) => initializeWithin(event.detail.elt));
   document.addEventListener("htmx:after:settle", (event) => {
-    if (event.detail.elt?.id === "app-main") event.detail.elt.focus({ preventScroll: true });
+    initializeWithin(event.target);
+    if (event.target.id === "app-main") event.target.focus({ preventScroll: true });
   });
-  document.addEventListener("DOMContentLoaded", () => initializeWithin(document));
+  document.addEventListener("DOMContentLoaded", () => {
+    initializeWithin(document);
+    const windowLayer = document.querySelector("#window-layer");
+    if (!windowLayer) return;
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) initializeWithin(node);
+        });
+      }
+    }).observe(windowLayer, { childList: true });
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     const windows = Array.from(document.querySelectorAll(".entity-window"));
